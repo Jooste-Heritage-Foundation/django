@@ -27,11 +27,18 @@ SECRET_KEY = 'django-insecure-rc^*w^w&6g9_(uvx#6s*bnt!w)l0rdi%!l7mv#y%uc&x%wo5pk
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ["*"]
+ALLOWED_HOSTS = [
+    'jooste.org',            # Your main frontend domain
+    #'api.jooste.org',        # If you are using a subdomain for your backend API
+    'localhost',             # For local development (optional)
+    '127.0.0.1',
+]
 
 # FORM SUBMISSION
 # Comment out the following line and place your railway URL, and your production URL in the array.
-# CSRF_TRUSTED_ORIGINS = ["*"]
+CSRF_TRUSTED_ORIGINS = [
+    'https://jooste.org',
+]
 
 # Application definition
 
