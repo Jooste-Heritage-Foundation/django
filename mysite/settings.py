@@ -32,6 +32,7 @@ ALLOWED_HOSTS = [
     #'api.jooste.org',        # If you are using a subdomain for your backend API
     'localhost',             # For local development (optional)
     '127.0.0.1',
+    'django-server-production-26a3.up.railway.app',  # Your Railway production URL
 ]
 
 # FORM SUBMISSION
