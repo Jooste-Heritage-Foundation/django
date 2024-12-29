@@ -39,6 +39,7 @@ ALLOWED_HOSTS = [
 # Comment out the following line and place your railway URL, and your production URL in the array.
 CSRF_TRUSTED_ORIGINS = [
     'https://jooste.org',
+    'https://django-server-production-26a3.up.railway.app',
 ]
 
 # Application definition
