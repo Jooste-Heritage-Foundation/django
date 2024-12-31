@@ -1,4 +1,8 @@
 from rest_framework import generics
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from .utils import get_birthdays_in_next_three_months
 from .models import Profile, Marriage
 from .serializers import ProfileSerializer, MarriageSerializer
 from rest_framework.exceptions import NotFound
@@ -26,6 +30,7 @@ class ProfileDetailView(generics.RetrieveAPIView):
             return Profile.objects.get(unique_id=unique_id)  # Filter by unique_id instead of pk
         except Profile.DoesNotExist:
             raise NotFound("Profile with this unique_id does not exist.")
+
     
 class MarriageListView(generics.ListAPIView):
     """
@@ -40,3 +45,9 @@ class MarriageDetailView(generics.RetrieveAPIView):
     """
     queryset = Marriage.objects.all()
     serializer_class = MarriageSerializer
+    
+class UpcomingBirthdaysAPIView(APIView):
+    def get(self, request):
+        profiles = get_birthdays_in_next_three_months()
+        serializer = ProfileSerializer(profiles, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
