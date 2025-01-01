@@ -1,7 +1,19 @@
 import random
 import string
+from datetime import datetime
 from django.db import models
 from location.models import Location
+
+# Define the custom upload_to function
+def profile_img_upload_to(instance, filename):
+    """
+    Custom upload_to function to generate a dynamic path for uploaded files.
+    """
+    category = "profile_picture"  # Specify the category/tag
+    ext = filename.split('.')[-1]  # Extract the file extension
+    timestamp = datetime.now().strftime('%Y%m%d%H%M%S')  # Generate a timestamp
+    filename = f"{instance.unique_id}-{category}-{timestamp}.{ext}"  # Example format
+    return f"profile_pictures/{filename}"
 
 class Profile(models.Model):
     GENDER_CHOICES = [
@@ -16,31 +28,41 @@ class Profile(models.Model):
         ('U', 'Unknown'),
     ]
     
+    DATE_TYPE_CHOICES = [
+        ('EXACT', 'Exact'),
+        ('BEFORE', 'Before'),
+        ('AFTER', 'After'),
+        ('CIRCA', 'Circa'),
+        ('BETWEEN', 'Between'),
+        ('UNKNOWN', 'Unknown'),
+    ]
+    
     unique_id = models.CharField(max_length=6, unique=True, editable=False, db_index=True)
+    profile_picture = models.ImageField(upload_to=profile_img_upload_to, blank=True, null=True)
     first_name = models.CharField(max_length=64, blank=True, null=True)
     last_name = models.CharField(max_length=64, blank=True, null=True)
     second_name = models.CharField(max_length=64, blank=True, null=True)
     known_as = models.CharField(max_length=64, blank=True, null=True)
     gender = models.CharField(max_length=1, choices=GENDER_CHOICES, blank=True, null=True)
     vitality = models.CharField(max_length=1, choices=VITALITY_CHOICES, blank=True, null=True)
+    birth_date_type = models.CharField(max_length=16, choices=DATE_TYPE_CHOICES, default='EXACT')
     birth_year = models.IntegerField(blank=True, null=True)
     birth_month = models.IntegerField(blank=True, null=True)
     birth_day = models.IntegerField(blank=True, null=True)
-    birth_circa = models.BooleanField(default=False, help_text="Is the birth date an approximate?")
     birth_date_range_start = models.DateField(blank=True, null=True, help_text="Start of birth date range (if known).")
     birth_date_range_end = models.DateField(blank=True, null=True, help_text="End of birth date range (if known).")
     birth_location = models.ForeignKey(Location, on_delete=models.SET_NULL, blank=True, null=True, related_name='birth_location')
+    baptism_date_type = models.CharField(max_length=16, choices=DATE_TYPE_CHOICES, default='EXACT')
     baptism_year = models.IntegerField(blank=True, null=True)
     baptism_month = models.IntegerField(blank=True, null=True)
     baptism_day = models.IntegerField(blank=True, null=True)
-    baptism_circa = models.BooleanField(default=False, help_text="Is the baptism date an approximate?")
     baptism_date_range_start = models.DateField(blank=True, null=True, help_text="Start of baptism date range (if known).")
     baptism_date_range_end = models.DateField(blank=True, null=True, help_text="End of baptism date range (if known).")
     baptism_location = models.ForeignKey(Location, on_delete=models.SET_NULL, blank=True, null=True, related_name='baptism_location')
+    death_date_type = models.CharField(max_length=16, choices=DATE_TYPE_CHOICES, default='EXACT')
     death_year = models.IntegerField(blank=True, null=True)
     death_month = models.IntegerField(blank=True, null=True)
     death_day = models.IntegerField(blank=True, null=True)
-    death_circa = models.BooleanField(default=False, help_text="Is the death date an approximate?")
     death_date_range_start = models.DateField(blank=True, null=True, help_text="Start of death date range (if known).")
     death_date_range_end = models.DateField(blank=True, null=True, help_text="End of death date range (if known).")
     death_location = models.ForeignKey(Location, on_delete=models.SET_NULL, blank=True, null=True, related_name='death_location')
@@ -56,14 +78,17 @@ class Profile(models.Model):
         """
         Returns the person's full name. Handles missing parts gracefully.
         """
-        parts = [self.first_name, self.second_name, self.last_name]
-        return " ".join(part for part in parts if part).strip() or "Unknown"
-    
+        parts = filter(None, [self.first_name, self.second_name, self.last_name])
+        return " ".join(parts).strip() or "Unknown"
+
+    @property
     def known_as_name(self):
         """
-        Returns the person's known as name, if available, otherwise falls back.
+        Returns the person's 'known as' name if available; otherwise, falls back to a composed name.
         """
-        return f"{self.known_as} {self.last_name}".strip()
+        if self.known_as:
+            return f"{self.known_as} {self.last_name}".strip()
+        return self.full_name or "Unknown"
     
     def get_siblings(self):
         """
@@ -124,29 +149,48 @@ class Profile(models.Model):
             return f"{self.full_name} (*. {birth_year})"
         elif self.vitality == 'D':
             return f"{self.full_name} (*. {birth_year} - †. {death_year})"
+        
+    def get_date_prefix(self, date_type):
+        """
+        Returns a date prefix based on the date type.
+        """
+        if date_type == 'EXACT':
+            return ""
+        elif date_type == 'BEFORE':
+            return "Bef. "
+        elif date_type == 'AFTER':
+            return "Aft. "
+        elif date_type == 'CIRCA':
+            return "Ca. "
+        elif date_type == 'BETWEEN':
+            return "Between "
+        else:
+            return "UNKNOWN"
     
-    def get_flexible_date(self, year, month, day, circa):
+    def get_flexible_date(self, year, month, day, date_type):
         """
         Returns a formatted date string based on the available fields.
         """
+        prefix = self.get_date_prefix(date_type)  # Get the prefix for the date type
+        
         if year and not  month and not day:
-            date_str = f"circa {year}" if circa else f"{year}"
+            date_str = f"{year}"
         elif year and month and not day:
-            date_str = f"circa {year}-{month:02}" if circa else f"{year}-{month:02}"
+            date_str = f"{year}-{month:02}"
         elif year and month and day:
-            date_str = f"circa {year}-{month:02}-{day:02}" if circa else f"{year}-{month:02}-{day:02}"
+            date_str = f"{year}-{month:02}-{day:02}"
         else:
             date_str = "Unknown"
-        return date_str
+        return f'{prefix}{date_str}'
     
     def birth_date_display(self):
-        return self.get_flexible_date(self.birth_year, self.birth_month, self.birth_day, self.birth_circa)
+        return self.get_flexible_date(self.birth_year, self.birth_month, self.birth_day, self.birth_date_type)
     
     def baptism_date_display(self):
-        return self.get_flexible_date(self.baptism_year, self.baptism_month, self.baptism_day, self.baptism_circa)
+        return self.get_flexible_date(self.baptism_year, self.baptism_month, self.baptism_day, self.baptism_date_type)
     
     def death_date_display(self):
-        return self.get_flexible_date(self.death_year, self.death_month, self.death_day, self.death_circa)
+        return self.get_flexible_date(self.death_year, self.death_month, self.death_day, self.death_date_type)
     
 class Marriage(models.Model):
     husband = models.ForeignKey(Profile, related_name='husbands', on_delete=models.SET_NULL, blank=True, null=True)

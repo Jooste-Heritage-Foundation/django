@@ -47,6 +47,8 @@ class MarriageDetailView(generics.RetrieveAPIView):
     serializer_class = MarriageSerializer
     
 class UpcomingBirthdaysAPIView(APIView):
+    name = "Birthdays"
+    description = "Get upcoming birthdays in the next 3 months."
     def get(self, request):
         profiles = get_birthdays_in_next_three_months()
         serializer = ProfileSerializer(profiles, many=True)
