@@ -200,51 +200,99 @@ class Profile(models.Model):
         return self.get_flexible_date(self.death_year, self.death_month, self.death_day, self.death_date_type)
     
 class Marriage(models.Model):
-    husband = models.ForeignKey(Profile, related_name='husbands', on_delete=models.SET_NULL, blank=True, null=True)
-    wife = models.ForeignKey(Profile, related_name='wives', on_delete=models.SET_NULL, null=True)
-    marriage_year = models.IntegerField(blank=True, null=True)
-    marriage_month = models.IntegerField(blank=True, null=True)
-    marriage_day = models.IntegerField(blank=True, null=True)
-    marriage_circa = models.BooleanField(default=False, help_text="Is the marriage date an approximate?")
-    marriage_date_range_start = models.DateField(blank=True, null=True, help_text="Start of marriage date range (if known).")
-    marriage_date_range_end = models.DateField(blank=True, null=True, help_text="End of marriage date range (if known).")
-    marriage_status = models.CharField(max_length=64, choices=[
+    
+    DATE_TYPE_CHOICES = [
+        ('EXACT', 'Exact'),
+        ('BEFORE', 'Before'),
+        ('AFTER', 'After'),
+        ('CIRCA', 'Circa'),
+        ('BETWEEN', 'Between'),
+        ('UNKNOWN', 'Unknown'),
+    ]
+    
+    MARRIAGE_STATUS_CHOICES = [
         ('M', 'Married'),
         ('D', 'Divorced'),
         ('S', 'Separated'),
         ('U', 'Unknown'),
-    ], default='M')
-    marriage_location = models.ForeignKey(Location, on_delete=models.SET_NULL, blank=True, null=True, related_name='location_of_marriage')
+    ]
     
+    spouse1 = models.ForeignKey(Profile, on_delete=models.SET_NULL, related_name="marriages_as_spouse1", null=True)
+    spouse2 = models.ForeignKey(Profile, on_delete=models.SET_NULL, related_name="marriages_as_spouse2", null=True)
+    relationship_status = models.CharField(max_length=1, choices=MARRIAGE_STATUS_CHOICES, default='M')
+    marriage_date_type = models.CharField(max_length=16, choices=DATE_TYPE_CHOICES, default='EXACT')
+    marriage_year = models.IntegerField(blank=True, null=True)
+    marriage_month = models.IntegerField(blank=True, null=True)
+    marriage_day = models.IntegerField(blank=True, null=True)
+    marriage_date_range_start = models.DateField(blank=True, null=True, help_text="Start of marriage date range (if known).")
+    marriage_date_range_end = models.DateField(blank=True, null=True, help_text="End of marriage date range (if known).")
+    marriage_location = models.ForeignKey(Location, on_delete=models.SET_NULL, blank=True, null=True, related_name='marriage_location')
+    divorce_date_type = models.CharField(max_length=16, choices=DATE_TYPE_CHOICES, default='EXACT')
     divorce_year = models.IntegerField(blank=True, null=True)
     divorce_month = models.IntegerField(blank=True, null=True)
     divorce_day = models.IntegerField(blank=True, null=True)
-    divorce_circa = models.BooleanField(default=False, help_text="Is the divorce date an approximate?")
     divorce_date_range_start = models.DateField(blank=True, null=True, help_text="Start of divorce date range (if known).")
     divorce_date_range_end = models.DateField(blank=True, null=True, help_text="End of divorce date range (if known).")
     
     class Meta:
         verbose_name_plural = "Marriages"
         
-    def __str__(self):
-        return f"{self.husband} & {self.wife} - {self.marriage_year}"
+    def get_date_prefix(self, date_type):
+        """
+        Returns a date prefix based on the date type.
+        """
+        if date_type == 'EXACT':
+            return ""
+        elif date_type == 'BEFORE':
+            return "Bef. "
+        elif date_type == 'AFTER':
+            return "Aft. "
+        elif date_type == 'CIRCA':
+            return "Ca. "
+        elif date_type == 'BETWEEN':
+            return "Between "
+        else:
+            return "UNKNOWN"
     
-    def get_flexible_date(self, year, month, day, circa):
+    def get_flexible_date(self, year, month, day, date_type):
         """
         Returns a formatted date string based on the available fields.
         """
-        if year and not  month and not day:
-            date_str = f"circa {year}" if circa else f"{year}"
+        prefix = self.get_date_prefix(date_type)  # Get the prefix for the date type
+
+        if not year and not month and not day:
+            return "Unknown"
+        elif year and not month and not day:
+            date_str = f"{year}"
         elif year and month and not day:
-            date_str = f"circa {year}-{month:02}" if circa else f"{year}-{month:02}"
+            date_str = f"{year}-{month:02}"
         elif year and month and day:
-            date_str = f"circa {year}-{month:02}-{day:02}" if circa else f"{year}-{month:02}-{day:02}"
+            date_str = f"{year}-{month:02}-{day:02}"
         else:
             date_str = "Unknown"
-        return date_str
+        
+        return f'{prefix}{date_str}'
     
     def marriage_date_display(self):
-        return self.get_flexible_date(self.marriage_year, self.marriage_month, self.marriage_day, self.marriage_circa)
+        return self.get_flexible_date(self.marriage_year, self.marriage_month, self.marriage_day, self.marriage_date_type)
     
     def divorce_date_display(self):
-        return self.get_flexible_date(self.divorce_year, self.divorce_month, self.divorce_day, self.divorce_circa)
+        return self.get_flexible_date(self.divorce_year, self.divorce_month, self.divorce_day, self.divorce_date_type)
+    
+    def is_active(self):
+        """
+        Determines if the marriage is currently active.
+        A marriage is inactive if:
+        - Either spouse's vitality is not 'A' (Alive), or
+        - The relationship status indicates divorce or separation.
+        """
+        if self.spouse1.vitality != 'A' or self.spouse2.vitality != 'A':
+            return False
+        if self.relationship_status in ['D', 'S']:  # Divorced or Separated
+            return False
+        return True
+        
+    def __str__(self):
+        marriage_info = f"{self.spouse1 or 'Unknown'} & {self.spouse2 or 'Unknown'}"
+        date_display = self.marriage_date_display()
+        return f"{marriage_info} (Married: {date_display})" if date_display != "Unknown" else marriage_info

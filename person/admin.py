@@ -41,5 +41,5 @@ class ProfileAdmin(admin.ModelAdmin):
     
 @admin.register(Marriage)
 class MarriageAdmin(admin.ModelAdmin):
-    list_display = ('husband', 'wife', 'marriage_date_display')
-    search_fields = ('husband__last_name', 'wife__last_name', 'marriage_date')
+    list_display = ('spouse1', 'spouse2', 'marriage_date_display')
+    search_fields = ('spouse1__last_name', 'spouse2__last_name', 'marriage_date')
