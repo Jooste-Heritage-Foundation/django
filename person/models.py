@@ -284,11 +284,8 @@ class Marriage(models.Model):
         """
         Determines if the marriage is currently active.
         A marriage is inactive if:
-        - Either spouse's vitality is not 'A' (Alive), or
         - The relationship status indicates divorce or separation.
         """
-        if self.spouse1.vitality != 'A' or self.spouse2.vitality != 'A':
-            return False
         if self.relationship_status in ['D', 'S']:  # Divorced or Separated
             return False
         return True
