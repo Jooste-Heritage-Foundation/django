@@ -28,6 +28,7 @@ class MarriageSerializer(serializers.ModelSerializer):
     spouse_name = serializers.SerializerMethodField()
     spouse_unique_id = serializers.SerializerMethodField()
     marriage_location = serializers.StringRelatedField()
+    children = ProfileSerializer(many=True, read_only=True)
     
     is_active = serializers.SerializerMethodField()
     

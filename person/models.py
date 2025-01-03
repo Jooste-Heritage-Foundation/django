@@ -233,6 +233,7 @@ class Marriage(models.Model):
     divorce_day = models.IntegerField(blank=True, null=True)
     divorce_date_range_start = models.DateField(blank=True, null=True, help_text="Start of divorce date range (if known).")
     divorce_date_range_end = models.DateField(blank=True, null=True, help_text="End of divorce date range (if known).")
+    children = models.ManyToManyField(Profile, related_name="parents", blank=True)
     
     class Meta:
         verbose_name_plural = "Marriages"
